@@ -1,0 +1,21 @@
+﻿# Build/IDE
+/.classpath
+/.project
+/.settings/
+/target/
+/out/
+/bin/
+/*.iml
+/.idea/
+/.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# WebContent compiled classes
+WebContent/WEB-INF/classes/
+
+# Secrets (adjust if any)
+*.env
+*.secret
