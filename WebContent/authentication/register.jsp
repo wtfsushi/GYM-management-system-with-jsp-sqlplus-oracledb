@@ -6,6 +6,9 @@
       <h2>Create Account</h2>
     </div>
     <div class="auth-body">
+      <div style="margin-bottom:1rem">
+        <a class="link-back" href="<%= request.getContextPath() %>/index.jsp"><i class="fas fa-arrow-left"></i> Go back</a>
+      </div>
       <form method="post" action="registerProcess.jsp">
         <input type="hidden" name="next" value="<%= request.getParameter("next") == null ? "" : request.getParameter("next") %>">
         <div class="form-group">

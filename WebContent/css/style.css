@@ -124,6 +124,32 @@ button:active, .btn:active { transform: translateY(1px); }
 	border: 2px solid var(--yellow);
 	font-weight: 600;
 }
+.btn-sm {
+  padding: .35rem .6rem;
+  font-size: .9rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.btn-outline.btn-sm {
+  border-width: 1px;
+}
+.btn-outline.btn-sm:hover {
+  box-shadow: 0 4px 12px rgba(255,214,10,.05);
+}
+
+/* Minimal back link */
+.link-back {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  color: var(--yellow);
+  text-decoration: none;
+  font-size: .95rem;
+  font-weight: 600;
+}
+.link-back:visited { color: var(--yellow); }
+.link-back i { font-size: .9rem; }
+.link-back:hover { color: var(--yellow); text-decoration: underline; }
 .btn-outline:hover {
 	background: rgba(255,214,10,0.1);
 	box-shadow: 0 8px 20px rgba(255,214,10,.05);
@@ -370,7 +396,7 @@ button:active, .btn:active { transform: translateY(1px); }
 }
 .auth-header {
   background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), 
-              url('../images/auth-gym.jpg') no-repeat center center;
+              url('https://images.pexels.com/photos/949132/pexels-photo-949132.jpeg') no-repeat center center;
   background-size: cover;
   padding: 2.5rem 1rem;
   text-align: center;

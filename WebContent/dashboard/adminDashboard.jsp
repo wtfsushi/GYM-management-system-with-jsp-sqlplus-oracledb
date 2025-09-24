@@ -1,5 +1,5 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
-<%@ page import="java.sql.*, com.gymapp.util.DBConnection" %>
+<%@ page import="java.sql.*, java.util.*, com.gymapp.util.DBConnection" %>
 <%@ include file="../shared/header.jsp" %>
 <%@ include file="../shared/navigation.jsp" %>
 
@@ -13,14 +13,12 @@
         int totalTrainers = 0;
         double totalRevenue = 0;
     int pendingPayments = 0;
-    // Recent activity variables (newest member + their payment)
-    String newestMemberName = null;
-    java.util.Date newestMemberDate = null;
-    Double newestPaymentAmount = null;
-    Integer newestPaymentMonths = null;
-    java.util.Date newestPaymentDate = null;
-    boolean hasLatestActivity = false;
-    Integer newestUserId = null;
+    // Recent activity: last 5 payments
+    List<String> recentNames = new ArrayList<String>();
+    List<Integer> recentUserIds = new ArrayList<Integer>();
+    List<java.util.Date> recentDates = new ArrayList<java.util.Date>();
+    List<Double> recentAmounts = new ArrayList<Double>();
+    List<Integer> recentMonths = new ArrayList<Integer>();
         
         Connection con = null;
         try {
@@ -74,74 +72,60 @@
                 pendingPayments = 0;
             }
 
-            // Recent Activity: newest member and their payment (use latest audit row)
+            // Recent Activity: fetch last 5 payments from audit log
+            boolean haveAny = false;
             try {
-                // Step 1: get latest audit_id for subscription insert
-                Integer latestAuditId = null;
-                PreparedStatement psMax = con.prepareStatement(
-                    "SELECT MAX(audit_id) AS max_id FROM subscribi_auditlog WHERE UPPER(TRIM(action)) = 'INSERT'"
+                PreparedStatement psList = con.prepareStatement(
+                    "SELECT * FROM (" +
+                    "  SELECT sa.user_id, sa.months, sa.amount, sa.action_date, " +
+                    "         NVL(u.full_name, u.username) AS display_name " +
+                    "  FROM subscribi_auditlog sa " +
+                    "  LEFT JOIN users u ON u.user_id = sa.user_id " +
+                    "  WHERE UPPER(TRIM(sa.action)) = 'INSERT' " +
+                    "  ORDER BY sa.action_date DESC NULLS LAST, sa.audit_id DESC" +
+                    ") WHERE ROWNUM <= 5"
                 );
-                ResultSet rsMax = psMax.executeQuery();
-                if (rsMax.next() && rsMax.getObject("max_id") != null) {
-                    latestAuditId = rsMax.getInt("max_id");
+                ResultSet rsList = psList.executeQuery();
+                while (rsList.next()) {
+                    haveAny = true;
+                    recentUserIds.add(rsList.getInt("user_id"));
+                    java.sql.Timestamp ts = rsList.getTimestamp("action_date");
+                    recentDates.add(ts != null ? new java.util.Date(ts.getTime()) : null);
+                    recentNames.add(rsList.getString("display_name"));
+                    recentAmounts.add(rsList.getObject("amount") != null ? rsList.getDouble("amount") : null);
+                    recentMonths.add(rsList.getObject("months") != null ? rsList.getInt("months") : null);
                 }
-                rsMax.close();
-                psMax.close();
-
-                if (latestAuditId != null) {
-                    // Step 2: fetch that audit row with user display name
-                    PreparedStatement psRow = con.prepareStatement(
-                        "SELECT sa.subscription_id, sa.user_id, sa.months, sa.amount, sa.action_date, " +
-                        "       NVL(u.full_name, u.username) AS display_name " +
-                        "FROM subscribi_auditlog sa " +
-                        "LEFT JOIN users u ON u.user_id = sa.user_id " +
-                        "WHERE sa.audit_id = ?"
-                    );
-                    psRow.setInt(1, latestAuditId);
-                    ResultSet rsRow = psRow.executeQuery();
-                    if (rsRow.next()) {
-                        hasLatestActivity = true;
-                        newestUserId = rsRow.getInt("user_id");
-                        newestMemberName = rsRow.getString("display_name");
-                        java.sql.Timestamp ad = rsRow.getTimestamp("action_date");
-                        newestMemberDate = ad != null ? new java.util.Date(ad.getTime()) : null;
-                        newestPaymentDate = newestMemberDate;
-                        newestPaymentAmount = rsRow.getObject("amount") != null ? rsRow.getDouble("amount") : null;
-                        newestPaymentMonths = rsRow.getObject("months") != null ? rsRow.getInt("months") : null;
-                    }
-                    rsRow.close();
-                    psRow.close();
-                }
+                rsList.close();
+                psList.close();
             } catch (SQLException e) {
-                // No audit table or rows, or SQL not supported
+                // audit table missing or query failed
                 e.printStackTrace();
             }
 
-            // Fallback: if no audit activity was found, use newest subscription directly
-            if (!hasLatestActivity) {
+            // Fallback to subscriptions if audit returned nothing
+            if (!haveAny) {
                 try {
-                    PreparedStatement psLatestSub = con.prepareStatement(
+                    PreparedStatement psList2 = con.prepareStatement(
                         "SELECT * FROM (" +
-                        "  SELECT s.subscription_id, s.user_id, s.months, s.amount, s.start_date, " +
+                        "  SELECT s.user_id, s.months, s.amount, s.start_date AS action_date, " +
                         "         NVL(u.full_name, u.username) AS display_name " +
                         "  FROM subscriptions s " +
                         "  LEFT JOIN users u ON u.user_id = s.user_id " +
                         "  ORDER BY s.start_date DESC NULLS LAST, s.subscription_id DESC" +
-                        ") WHERE ROWNUM = 1"
+                        ") WHERE ROWNUM <= 5"
                     );
-                    ResultSet rsLatestSub = psLatestSub.executeQuery();
-                    if (rsLatestSub.next()) {
-                        hasLatestActivity = true;
-                        newestUserId = rsLatestSub.getInt("user_id");
-                        newestMemberName = rsLatestSub.getString("display_name");
-                        java.sql.Date sd = rsLatestSub.getDate("start_date");
-                        newestMemberDate = sd != null ? new java.util.Date(sd.getTime()) : null;
-                        newestPaymentDate = newestMemberDate;
-                        newestPaymentAmount = rsLatestSub.getObject("amount") != null ? rsLatestSub.getDouble("amount") : null;
-                        newestPaymentMonths = rsLatestSub.getObject("months") != null ? rsLatestSub.getInt("months") : null;
+                    ResultSet rsList2 = psList2.executeQuery();
+                    while (rsList2.next()) {
+                        haveAny = true;
+                        recentUserIds.add(rsList2.getInt("user_id"));
+                        java.sql.Timestamp ts = rsList2.getTimestamp("action_date");
+                        recentDates.add(ts != null ? new java.util.Date(ts.getTime()) : null);
+                        recentNames.add(rsList2.getString("display_name"));
+                        recentAmounts.add(rsList2.getObject("amount") != null ? rsList2.getDouble("amount") : null);
+                        recentMonths.add(rsList2.getObject("months") != null ? rsList2.getInt("months") : null);
                     }
-                    rsLatestSub.close();
-                    psLatestSub.close();
+                    rsList2.close();
+                    psList2.close();
                 } catch (SQLException ignore) {
                     // subscriptions table missing
                 }
@@ -257,34 +241,39 @@
                 <tbody>
                 <%
                     java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("MMM dd, yyyy");
-                    // Row 1: Newest Member
-                    if (hasLatestActivity) {
-                %>
-                    <tr>
-                        <td><%= newestMemberDate != null ? df.format(newestMemberDate) : "" %></td>
-                        <td>New Member</td>
-                        <td><%= (newestMemberName != null && !newestMemberName.isEmpty()) ? newestMemberName : ("User #" + (newestUserId != null ? newestUserId : 0)) %></td>
-                        <td>Registered new account</td>
-                    </tr>
-                <%
-                    }
-                    // Row 2: Payment for newest member
-                    if (hasLatestActivity && newestPaymentAmount != null) {
-                %>
-                    <tr>
-                        <td><%= newestPaymentDate != null ? df.format(newestPaymentDate) : (newestMemberDate != null ? df.format(newestMemberDate) : "") %></td>
-                        <td>Payment</td>
-                        <td><%= (newestMemberName != null && !newestMemberName.isEmpty()) ? newestMemberName : ("User #" + (newestUserId != null ? newestUserId : 0)) %></td>
-                        <td>৳<%= String.format("%.2f", newestPaymentAmount) %><%= (newestPaymentMonths != null ? (" for " + newestPaymentMonths + " month" + (newestPaymentMonths > 1 ? "s" : "")) : "") %></td>
-                    </tr>
-                <%
-                    }
-                    if (!hasLatestActivity) {
+                    if (recentDates.size() == 0) {
                 %>
                     <tr>
                         <td colspan="4" style="text-align:center;color:#999">No recent activity yet.</td>
                     </tr>
                 <%
+                    } else {
+                        for (int i = 0; i < recentDates.size(); i++) {
+                            String name = recentNames.get(i);
+                            Integer uid = recentUserIds.get(i);
+                            java.util.Date dt = recentDates.get(i);
+                            Double amt = recentAmounts.get(i);
+                            Integer mon = recentMonths.get(i);
+                            String displayName = (name != null && name.length() > 0) ? name : ("User #" + (uid != null ? uid : 0));
+                %>
+                    <tr>
+                        <td><%= dt != null ? df.format(dt) : "" %></td>
+                        <td>New Member</td>
+                        <td><%= displayName %></td>
+                        <td>Registered new account</td>
+                    </tr>
+                <%
+                        if (amt != null) {
+                %>
+                    <tr>
+                        <td><%= dt != null ? df.format(dt) : "" %></td>
+                        <td>Payment</td>
+                        <td><%= displayName %></td>
+                        <td>৳<%= String.format("%.2f", amt) %><%= (mon != null ? (" for " + mon + " month" + (mon > 1 ? "s" : "")) : "") %></td>
+                    </tr>
+                <%
+                        }
+                        }
                     }
                 %>
                 </tbody>
