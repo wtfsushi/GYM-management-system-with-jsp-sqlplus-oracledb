@@ -19,8 +19,12 @@
             } else if ("trainer".equals(navRole)) {
                 dashboardLink = request.getContextPath() + "/dashboard/trainerDashboard.jsp";
                 dashboardIcon = "fa-person-running";
-            } else {
+            } else if ("member".equals(navRole)) {
                 dashboardLink = request.getContextPath() + "/dashboard/memberDashboard.jsp";
+                dashboardIcon = "fa-user";
+            } else {
+                // basic user
+                dashboardLink = request.getContextPath() + "/dashboard/userDashboard.jsp";
                 dashboardIcon = "fa-user";
             }
         %>

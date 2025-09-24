@@ -7,6 +7,7 @@
     </div>
     <div class="auth-body">
       <form method="post" action="registerProcess.jsp">
+        <input type="hidden" name="next" value="<%= request.getParameter("next") == null ? "" : request.getParameter("next") %>">
         <div class="form-group">
           <label for="username">Username</label>
           <input type="text" id="username" name="username" required>

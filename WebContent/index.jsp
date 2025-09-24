@@ -7,7 +7,7 @@
     <h1>POWER FITNESS GYM</h1>
     <p>Transform your body, mind, and life with our premium facilities and expert trainers. Join our community and achieve your fitness goals today.</p>
     <div class="hero-buttons">
-      <a href="authentication/register.jsp" class="btn btn-primary">Subscribe Now</a>
+      <a href="subscriptions/start.jsp" class="btn btn-primary">Subscribe Now</a>
       
     </div>
   </div>
